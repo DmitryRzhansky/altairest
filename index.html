@@ -1392,17 +1392,37 @@ const TT={
               'Подвал':{bg:'rgba(255,77,61,.18)',bd:'rgba(255,77,61,.5)'},
               'Главная':{bg:'rgba(52,211,153,.18)',bd:'rgba(52,211,153,.45)'}};
 
-  const labels=items.map(d=>d.f);
   const gapEl=document.getElementById('gapChart');
   if(gapEl&&items.length){
     try{
       const mqNarrow=window.matchMedia('(max-width:720px)');
-      const gapLayoutPad=()=>(mqNarrow.matches?{left:14,right:10,top:8,bottom:8}:{left:6,right:8,top:6,bottom:6});
-      const gapYMaxW=()=>(mqNarrow.matches?118:undefined);
+      /** Перенос по словам — встроенный maxWidth у Chart.js рвёт строки посередине слова */
+      const wrapLabelWords=(str,maxPerLine)=>{
+        const lim=Math.max(10,maxPerLine|0);
+        if(!str||str.length<=lim)return str;
+        const words=str.split(/\s+/).filter(Boolean);
+        const lines=[];
+        let line='';
+        for(const w of words){
+          if(w.length>lim){
+            if(line){lines.push(line);line=''}
+            for(let i=0;i<w.length;i+=lim)lines.push(w.slice(i,i+lim));
+            continue;
+          }
+          const next=line?`${line} ${w}`:w;
+          if(next.length<=lim)line=next;
+          else{if(line)lines.push(line);line=w}
+        }
+        if(line)lines.push(line);
+        return lines.join('\n');
+      };
+      const gapLabelsFor=(narrow)=>items.map(d=>wrapLabelWords(d.f,narrow?22:999));
+      const gapLayoutPad=()=>(mqNarrow.matches?{left:10,right:10,top:10,bottom:10}:{left:6,right:8,top:6,bottom:6});
+      const gapYTickFont=()=>(mqNarrow.matches?{size:13,weight:'500'}:{size:15,weight:'500'});
       const gapChart=new Chart(gapEl.getContext('2d'),{
         type:'bar',
         data:{
-          labels,
+          labels:gapLabelsFor(mqNarrow.matches),
           datasets:[{
             label:'Конкурентов',
             data:items.map(d=>d.cc),
@@ -1440,21 +1460,28 @@ const TT={
               border:{display:true,color:'transparent',width:0},
               ticks:{
                 color:'#CBD5E1',
-                font:{size:15,weight:'500'},
-                padding:8,
-                maxWidth:gapYMaxW(),
+                font:gapYTickFont(),
+                padding:10,
               }
             }
           }
         }
       });
       const syncGapChartLayout=()=>{
+        const n=mqNarrow.matches;
+        gapChart.data.labels=gapLabelsFor(n);
         gapChart.options.layout.padding=gapLayoutPad();
-        gapChart.options.scales.y.ticks.maxWidth=gapYMaxW();
+        gapChart.options.scales.y.ticks.font=gapYTickFont();
         gapChart.update();
       };
+      let gapRf;
+      const onGapResize=()=>{
+        cancelAnimationFrame(gapRf);
+        gapRf=requestAnimationFrame(syncGapChartLayout);
+      };
       mqNarrow.addEventListener('change',syncGapChartLayout);
-      window.addEventListener('orientationchange',()=>{requestAnimationFrame(syncGapChartLayout)});
+      window.addEventListener('orientationchange',onGapResize);
+      window.addEventListener('resize',onGapResize);
     }catch(_){}
   }
 })();
