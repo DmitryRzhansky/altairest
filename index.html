@@ -68,6 +68,9 @@ body{
 
 /* ─── LAYOUT ─────────────────────────────── */
 .page{max-width:var(--W);margin:0 auto;padding:0 40px}
+@media (max-width:720px){
+  .page{padding-left:clamp(12px,3.8vw,22px);padding-right:clamp(12px,3.8vw,22px)}
+}
 
 .card{
   background:var(--surface);
@@ -84,6 +87,9 @@ body{
     box-shadow:0 0 0 1px rgba(255,107,0,.12),0 32px 56px rgba(0,0,0,.32);
     border-color:rgba(30,107,255,.25);
   }
+}
+@media (max-width:720px){
+  .card{padding:40px clamp(14px,4vw,22px) 44px}
 }
 
 /* ─── COVER / MASTHEAD (как PDF) ─────────── */
@@ -656,7 +662,15 @@ body{
 }
 
 /* ─── GAP CHART ──────────────────────────── */
-.gap-chart-box{position:relative}
+.gap-chart-box{
+  position:relative;
+  height:520px;
+  width:100%;
+  min-width:0;
+}
+@media (max-width:720px){
+  .gap-chart-box{height:clamp(480px,68vh,640px)}
+}
 
 /* ─── ТОП‑15: аккордеон по разделам ──────── */
 .pri-acc{display:flex;flex-direction:column;gap:12px}
@@ -1153,7 +1167,7 @@ body{
     <div class="ch-title">Топ-факторы: сколько конкурентов уже внедрили</div>
     <div class="ch-sub">Только то, чего нет у нас</div>
   </div>
-  <div class="anim-chart" style="position:relative;height:520px">
+  <div class="gap-chart-box anim-chart">
     <canvas id="gapChart"></canvas>
   </div>
 </div>
@@ -1382,7 +1396,10 @@ const TT={
   const gapEl=document.getElementById('gapChart');
   if(gapEl&&items.length){
     try{
-      new Chart(gapEl.getContext('2d'),{
+      const mqNarrow=window.matchMedia('(max-width:720px)');
+      const gapLayoutPad=()=>(mqNarrow.matches?{left:14,right:10,top:8,bottom:8}:{left:6,right:8,top:6,bottom:6});
+      const gapYMaxW=()=>(mqNarrow.matches?118:undefined);
+      const gapChart=new Chart(gapEl.getContext('2d'),{
         type:'bar',
         data:{
           labels,
@@ -1399,6 +1416,7 @@ const TT={
         options:{
           indexAxis:'y',
           responsive:true,maintainAspectRatio:false,
+          layout:{padding:gapLayoutPad()},
           interaction:{mode:'nearest',intersect:true},
           plugins:{
             legend:{display:false},
@@ -1424,11 +1442,19 @@ const TT={
                 color:'#CBD5E1',
                 font:{size:15,weight:'500'},
                 padding:8,
+                maxWidth:gapYMaxW(),
               }
             }
           }
         }
       });
+      const syncGapChartLayout=()=>{
+        gapChart.options.layout.padding=gapLayoutPad();
+        gapChart.options.scales.y.ticks.maxWidth=gapYMaxW();
+        gapChart.update();
+      };
+      mqNarrow.addEventListener('change',syncGapChartLayout);
+      window.addEventListener('orientationchange',()=>{requestAnimationFrame(syncGapChartLayout)});
     }catch(_){}
   }
 })();
